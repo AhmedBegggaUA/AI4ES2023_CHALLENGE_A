@@ -10,13 +10,16 @@ from pyod.models.auto_encoder import AutoEncoder
 from pyod.models.iforest import IForest
 from joblib import dump, load
 from utils import *
-def train(model_EMU = ["MobileNetV2","ResNet50"],model_ANOMALY = "comb",window_size=16, step_size=8, batch_size=2048):
+def train(model_EMU = ["MobileNetV2","ResNet50"],model_ANOMALY = "comb",window_size=(16,16,3), step_size=8, batch_size=2048):
     dataloader = DataLoader(dataset_path="dataset/") # Load data from dataset folder
     train_paths = dataloader.load("train") # Load train paths
     print("Total amount of training samples: ", len(train_paths)) # Print the amount of training samples    
     try:
-        train_features = np.load("train_features.npy")
-        print("Features loaded from disk successfully!")
+        if model_EMU == "None":
+            train_features = np.zeros((len(train_paths),512))
+        else:
+            train_features = np.load("train_features.npy")
+            print("Features loaded from disk successfully!")
     except:
         print("No features found, extracting features from training dataset...")
         train_features, _, _, _ = extract_features(paths = train_paths, window_size=window_size, step_size=step_size, batch_size=batch_size, feature_extractors=model_EMU)
@@ -37,20 +40,21 @@ def train(model_EMU = ["MobileNetV2","ResNet50"],model_ANOMALY = "comb",window_s
         exit()
     batch_size = batch_size
     if model_ANOMALY != "comb":
-        for i in tqdm(range(0, len(train_features), batch_size), desc="Extracting features", leave=False):
-            batch = preprocess_input(train_features[i:i + batch_size].copy())
-            model.fit(batch)
+        print("Training " + model_ANOMALY + "...")
+        model.fit(train_features)
+        print("Saving model...")
+        if model_ANOMALY == "IF":
+            dump(model, "IF.joblib")
+        else:
+            dump(model, "AE.h5")
     else:
-        for i in tqdm(range(0, len(train_features), batch_size), desc="Extracting features", leave=False):
-            batch = preprocess_input(train_features[i:i + batch_size].copy())
-            model_IF.fit(batch)
-            model_AE.fit(batch)
-    if model_ANOMALY == "IF":
-        dump(model, "IF.joblib")
-    elif model_ANOMALY == "AE":
-        model.save("AE.h5")
-    else:
+        print("Training IF...")
+        model_IF.fit(train_features)
+        print("Saving model...")
         dump(model_IF, "IF.joblib")
+        print("Training AE...")
+        model_AE.fit(train_features)
+        print("Saving model...")
         dump(model_AE, "AE.h5")
     print("Model saved, Bye!")
     return True

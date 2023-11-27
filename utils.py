@@ -56,6 +56,8 @@ def extract_features(paths,window_size,step_size,batch_size,feature_extractors, 
     positions = positions[mask] # Filter positions, the ones that are not white
     batch_size = 2048*2*2
     features = []
+    if feature_extractors == "None":
+        return None, windows, positions, image_ids
     if len(feature_extractors) == 1:
         feature_extractor = get_feature_extractor(feature_extractors[0])
         for i in tqdm(range(0, len(windows), batch_size), desc="Extracting features", leave=False):
